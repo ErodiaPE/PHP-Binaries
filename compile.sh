@@ -17,6 +17,7 @@ OPENSSL_VERSION="3.4.0"
 LIBZIP_VERSION="1.10.1"
 SQLITE3_VERSION="3450200" #3.45.2
 LIBDEFLATE_VERSION="78051988f96dc8d8916310d8b24021f01bd9e102" #1.23 - see above note about "v" prefixes
+LIBSNAPPY_VER="1.2.2"
 
 EXT_PMMPTHREAD_VERSION="6.1.1"
 EXT_YAML_VERSION="2.2.4"
@@ -31,6 +32,8 @@ EXT_MORTON_VERSION="0.1.2"
 EXT_XXHASH_VERSION="0.2.0"
 EXT_ARRAYDEBUG_VERSION="0.2.0"
 EXT_ENCODING_VERSION="0.4.0"
+EXT_VANILLAGENERATOR_VERSION="abd059fd2ca79888aab3b9c5070d83ceea55fada"
+EXT_SNAPPY_VERSION="0.2.3"
 
 function write_out {
 	echo "[$1] $2"
@@ -561,6 +564,47 @@ download_github_src "php/php-src" "php-$PHP_VERSION" "php" | tar -zx >> "$DIR/in
 mv php-src-php-$PHP_VERSION php
 write_done
 
+
+function build_snappy {
+	write_library snappy "$LIBSNAPPY_VER"
+	local snappy_dir="./snappy-$LIBSNAPPY_VER"
+
+	if cant_use_cache "$snappy_dir"; then
+		rm -rf "$snappy_dir"
+		write_download
+		git_download_file "https://github.com/google/snappy.git" "snappy" "$LIBSNAPPY_VER" $snappy_dir >> "$DIR/install.log" 2>&1
+		echo -n " checking..."
+		pushd $snappy_dir >> "$DIR/install.log" 2>&1
+		if [ "$DO_STATIC" != "yes" ]; then
+		  local EXTRA_FLAGS="-DBUILD_SHARED_LIBS=ON"
+		else
+		  local EXTRA_FLAGS=""
+		fi
+		mkdir -p cmake/build
+		pushd cmake/build >> "$DIR/install.log" 2>&1
+		cmake ../.. \
+		  -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR" \
+		  -DCMAKE_PREFIX_PATH="$INSTALL_DIR" \
+		  -DCMAKE_INSTALL_LIBDIR=lib \
+		  -DCMAKE_BUILD_TYPE=Release \
+		  $CMAKE_GLOBAL_EXTRA_FLAGS \
+		  $EXTRA_FLAGS \
+		  >> "$DIR/install.log" 2>&1
+		write_compile
+		make -j $THREADS >> "$DIR/install.log" 2>&1 && mark_cache
+	else
+		write_caching
+		pushd "$grpc_dir/cmake/build"
+	fi
+
+	write_install
+	make install >> "$DIR/install.log" 2>&1
+	popd >> "$DIR/install.log" 2>&1
+	popd >> "$DIR/install.log" 2>&1
+
+	write_done
+}
+
 function build_zlib {
 	if [ "$DO_STATIC" == "yes" ]; then
 		local EXTRA_FLAGS="--static"
@@ -1039,6 +1083,7 @@ function build_libdeflate {
 
 cd "$LIB_BUILD_DIR"
 
+build_snappy
 build_zlib
 build_gmp
 build_openssl
@@ -1109,6 +1154,8 @@ git submodule update --init --recursive >> "$DIR/install.log" 2>&1
 cd "$BUILD_DIR"
 write_done
 
+get_github_extension "snappy" "$EXT_SNAPPY_VERSION" "kjdev" "php-ext-snappy"
+
 get_github_extension "leveldb" "$EXT_LEVELDB_VERSION" "pmmp" "php-leveldb"
 
 get_github_extension "chunkutils2" "$EXT_CHUNKUTILS2_VERSION" "pmmp" "ext-chunkutils2"
@@ -1122,6 +1169,8 @@ get_github_extension "xxhash" "$EXT_XXHASH_VERSION" "pmmp" "ext-xxhash"
 get_github_extension "arraydebug" "$EXT_ARRAYDEBUG_VERSION" "pmmp" "ext-arraydebug"
 
 get_github_extension "encoding" "$EXT_ENCODING_VERSION" "pmmp" "ext-encoding"
+
+get_github_extension "vanillagenerator" "$EXT_VANILLAGENERATOR_VERSION" "ErodiaPE" "ext-vanillagenerator"
 
 write_library "PHP" "$PHP_VERSION"
 
@@ -1205,6 +1254,7 @@ RANLIB=$RANLIB CFLAGS="$CFLAGS $FLAGS_LTO" CXXFLAGS="$CXXFLAGS $FLAGS_LTO" LDFLA
 $HAS_LIBJPEG \
 $HAS_GD \
 --with-leveldb="$INSTALL_DIR" \
+--with-snappy-includedir="$INSTALL_DIR" \
 --without-readline \
 $HAS_DEBUG \
 --enable-chunkutils2 \
@@ -1249,6 +1299,8 @@ $HAVE_MYSQLI \
 --enable-xxhash \
 --enable-arraydebug \
 --enable-encoding \
+--enable-snappy \
+--enable-vanillagenerator \
 $HAVE_VALGRIND \
 $CONFIGURE_FLAGS >> "$DIR/install.log" 2>&1
 write_compile
