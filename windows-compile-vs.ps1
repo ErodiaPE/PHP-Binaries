@@ -27,6 +27,7 @@ $PHP_XXHASH_VER="0.2.0"
 $PHP_XDEBUG_VER="3.3.2"
 $PHP_ARRAYDEBUG_VER="0.2.0"
 $PHP_ENCODING_VER="0.4.0"
+$PHP_VANILLAGENERATOR_VER="2.1.7"
 
 function pm-echo {
     param ([string] $message)
@@ -427,6 +428,7 @@ function get-github-extension {
 function download-php-extensions {
     Push-Location "$SOURCES_PATH\php-src\ext" >> $log_file 2>&1
     get-github-extension "pmmpthread" $PHP_PMMPTHREAD_VER "pmmp" "ext-pmmpthread"
+    get-github-extension "vanillagenerator"      $PHP_VANILLAGENERATOR_VER      "ErodiaPE" "ext-vanillagenerator"
     get-github-extension "yaml"                  $PHP_YAML_VER                  "php"      "pecl-file_formats-yaml"
     get-github-extension "chunkutils2"           $PHP_CHUNKUTILS2_VER           "pmmp"     "ext-chunkutils2"
     get-github-extension "igbinary"              $PHP_IGBINARY_VER              "igbinary" "igbinary"
@@ -439,6 +441,10 @@ function download-php-extensions {
     get-github-extension "arraydebug"            $PHP_ARRAYDEBUG_VER            "pmmp"     "ext-arraydebug"
     get-github-extension "encoding"              $PHP_ENCODING_VER              "pmmp"     "ext-encoding"
 
+    # Vanilla generator depend on this folder, the compiler will not be able
+    # to find these dependencies if the folder name were to change
+    Move-Item "ext-chunkutils2-$PHP_CHUNKUTILS2_VER" "chunkutils2" -Force
+    Move-Item "ext-morton-$PHP_MORTON_VER" "morton" -Force
     write-library "php-ext crypto" $PHP_CRYPTO_VER
     write-download
     (& cmd.exe /c "git clone https://github.com/bukka/php-crypto.git crypto 2>&1") >> $log_file
@@ -512,6 +518,7 @@ sdk-command "configure^`
     --enable-opcache^`
     --enable-opcache-jit=$PHP_JIT_ENABLE_ARG^`
     --enable-phar^`
+    --enable-vanillagenerator=shared^`
     --enable-recursionguard=shared^`
     --enable-sockets^`
     --enable-tokenizer^`
@@ -603,6 +610,7 @@ append-file-utf8 "opcache.cache_id=PHP_BINARY ;prevent sharing SHM between diffe
 append-file-utf8 ";Optional extensions, supplied for plugin use" $php_ini
 append-file-utf8 "extension=php_fileinfo.dll" $php_ini
 append-file-utf8 "extension=php_gd.dll" $php_ini
+append-file-utf8 "extension=php_vanillagenerator.dll" $php_ini
 append-file-utf8 "extension=php_mysqli.dll" $php_ini
 append-file-utf8 "extension=php_sqlite3.dll" $php_ini
 append-file-utf8 ";Optional extensions, supplied for debugging" $php_ini
